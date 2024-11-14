@@ -9,6 +9,54 @@ use icicle_core::{
 use icicle_hash::{blake2s::Blake2s, keccak::Keccak256};
 use icicle_runtime::memory::HostSlice;
 use std::time::Instant;
+use alloy_primitives::{Address, B256, U256};
+use rand::{rngs::StdRng, thread_rng, Rng, SeedableRng};
+use reth_primitives_traits::Account;
+use megaeth_salt::{
+    genesis::EmptySalt, mem_salt::GlobalMemSalt, state::state::EphemeralSaltState,
+    trie::trie::StateRoot, types::*,
+};
+use std::collections::HashMap;
+
+const SEED: usize = 123456789;
+
+
+// Randomly generate 'l' key-value pairs
+fn create_random_kv_pairs(l: usize) -> HashMap<PlainKey, PlainValue> {
+    let mut rng1 = StdRng::seed_from_u64(SEED as u64);
+
+    let mut r = thread_rng();
+    let s: usize = r.gen();
+    let mut rng2 = StdRng::seed_from_u64(s as u64);
+
+    let mut res = HashMap::new();
+
+    (0..l / 2).for_each(|_| {
+        let pk = PlainKey::Account(Address::random_with(&mut rng1));
+        let pv = PlainValue::Account(Some(Account {
+            balance: U256::from(rng2.gen_range(0..1000)),
+            nonce: rng2.gen_range(0..100),
+            bytecode_hash: None,
+        }));
+        res.insert(pk, pv);
+    });
+    (l / 2..l).for_each(|_| {
+        let pk = PlainKey::Storage(Address::random_with(&mut rng1), B256::random_with(&mut rng1));
+        let pv = PlainValue::Storage(B256::random_with(&mut rng2).into());
+        res.insert(pk, pv);
+    });
+    res
+}
+
+fn to_salt_value(k: PlainKey, v: PlainValue) -> SaltValue {
+    let mut buf = vec![];
+    v.encode(&mut buf);
+
+    SaltValue {
+        key: k.encode().into(),
+        value: buf.into(),
+    }
+}
 
 /// Command-line argument parser
 #[derive(Parser, Debug)]
@@ -30,11 +78,24 @@ fn try_load_and_set_backend_device(args: &Args) {
     icicle_runtime::set_device(&device).unwrap();
 }
 
+
 /// Example of Keccak-256 hashing using the ICICLE framework
 fn keccak_hash_example() {
-    // 1. Create a Keccak-256 hasher instance
-    let keccak_hasher = Keccak256::new(0 /*=default input size */).unwrap();
-    // Note: the default input size is useful in some cases. Can be ignored in this example.
+    let kvs = create_random_kv_pairs(100_000);
+
+    for (k, v) in kvs {
+        let  mut keccak_hasher = Keccak256::new();
+
+        keccak_hasher.update(k.encode());
+
+        let mut buf = vec![];
+        v.encode(&mut buf);
+        keccak_hasher.update(buf);
+        keccak_hasher.finalize()
+
+        let mut output = vec![0u8; 32]; // Output buffer for the hash
+
+    }
 
     // 2. Hash a simple string
     let input_str = "I like ICICLE! it's so fast and easy";
@@ -203,5 +264,6 @@ fn main() {
     keccak_hash_example();
 
     // Execute the Merkle-tree example
-    merkle_tree_example();
+    // merkle_tree_example();
 }
+

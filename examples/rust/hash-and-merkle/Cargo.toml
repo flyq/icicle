@@ -10,6 +10,10 @@ icicle-core = {path = "../../../wrappers/rust/icicle-core" }
 icicle-runtime = {path = "../../../wrappers/rust/icicle-runtime" }
 icicle-hash = {path = "../../../wrappers/rust/icicle-hash" }
 icicle-babybear = {path = "../../../wrappers/rust/icicle-fields/icicle-babybear" }
+alloy-primitives = { version = "0.7.2", default-features = false, features = ["rand"] }
+rand = "0.8.5"
+megaeth-salt = { path = "/home/fft/workspace/mega/mega-reth/crates/salt/salt" }
+reth-primitives-traits = { path = "/home/fft/workspace/mega/mega-reth/crates/primitives-traits", default-features = false }
 
 [features]
 cuda = ["icicle-runtime/cuda_backend",
