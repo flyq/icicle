@@ -1,10 +1,8 @@
 use clap::Parser;
 use hex;
-use icicle_babybear::field::ScalarCfg as BabybearCfg;
 use icicle_core::{
     hash::{HashConfig, Hasher},
     merkle::{MerkleTree, MerkleTreeConfig, PaddingPolicy},
-    traits::GenerateRandom,
 };
 use icicle_hash::{blake2s::Blake2s, keccak::Keccak256};
 use icicle_runtime::memory::HostSlice;
@@ -13,8 +11,7 @@ use alloy_primitives::{Address, B256, U256};
 use rand::{rngs::StdRng, thread_rng, Rng, SeedableRng};
 use reth_primitives_traits::Account;
 use megaeth_salt::{
-    genesis::EmptySalt, mem_salt::GlobalMemSalt, state::state::EphemeralSaltState,
-    trie::trie::StateRoot, types::*,
+  types::*,
 };
 use std::collections::HashMap;
 
@@ -62,7 +59,7 @@ fn to_salt_value(k: PlainKey, v: PlainValue) -> SaltValue {
 #[derive(Parser, Debug)]
 struct Args {
     /// Device type (e.g., "CPU", "CUDA")
-    #[arg(short, long, default_value = "CPU")]
+    #[arg(short, long, default_value = "CUDA")]
     device_type: String,
 }
 
@@ -81,61 +78,20 @@ fn try_load_and_set_backend_device(args: &Args) {
 
 /// Example of Keccak-256 hashing using the ICICLE framework
 fn keccak_hash_example() {
-    let kvs = create_random_kv_pairs(100_000);
+    let kvs = create_random_kv_pairs(1);
+    let salt_value = to_salt_value(*kvs.keys().next().unwrap(), *kvs.values().next().unwrap());
 
-    for (k, v) in kvs {
-        let  mut keccak_hasher = Keccak256::new();
 
-        keccak_hasher.update(k.encode());
-
-        let mut buf = vec![];
-        v.encode(&mut buf);
-        keccak_hasher.update(buf);
-        keccak_hasher.finalize()
-
-        let mut output = vec![0u8; 32]; // Output buffer for the hash
-
-    }
-
-    // 2. Hash a simple string
-    let input_str = "I like ICICLE! it's so fast and easy";
-    let expected_hash = "9fac4e3dc249b59cc57bdec04c132073f0f6ef3a216ef5b3b75815292fb7a45e";
-    let mut output = vec![0u8; 32]; // Output buffer for the hash
-
-    keccak_hasher
-        .hash(
-            HostSlice::from_slice(input_str.as_bytes()),
-            &HashConfig::default(),
-            HostSlice::from_mut_slice(&mut output),
-        )
-        .unwrap();
-
-    // Convert the output to a hex string and print the result
-    let output_as_hex_str = hex::encode(output);
-    println!("Hash(`{}`) = {:?}", input_str, &output_as_hex_str);
-    assert_eq!(expected_hash, output_as_hex_str);
-
-    // 3. Hash field elements (Babybear field elements)
-    let input_field_elements = BabybearCfg::generate_random(128); // Generate random field elements
-    let mut output = vec![0u8; 32]; // Output buffer for the hash
-
-    keccak_hasher
-        .hash(
-            HostSlice::from_slice(&input_field_elements),
-            &HashConfig::default(),
-            HostSlice::from_mut_slice(&mut output),
-        )
-        .unwrap();
-
-    // Convert the output to a hex string and print the result
-    let output_as_hex_str = hex::encode(output);
-    println!("Hash(```babybear field elements```) = {:?}", &output_as_hex_str);
 
     // 4. Hash field elements in batch
-    let batch = 1 << 10; // 1024
-    let single_hash_nof_elements = 1 << 12; // 4096
-    let total_input_elements = batch * single_hash_nof_elements;
-    let input_field_elements_batch = BabybearCfg::generate_random(total_input_elements);
+    let batch = 100_000 * 85; 
+    let single_input = salt_value.to_vec();
+    let total_input_elements = batch * single_input.len();
+
+    let input_batch = single_input.repeat(batch);
+
+    let keccak_hasher = Keccak256::new(total_input_elements as u64).unwrap();  // 32 bytes (256 bits) output size
+
 
     // The size of the output determines the batch size for the hash function
     let mut output = vec![0u8; 32 * batch]; // Output buffer for batch hashing. Doesn't have to be u8.
@@ -143,7 +99,7 @@ fn keccak_hash_example() {
     let start = Instant::now(); // Start timer for performance measurement
     keccak_hasher
         .hash(
-            HostSlice::from_slice(&input_field_elements_batch),
+            HostSlice::from_slice(&input_batch),
             &HashConfig::default(),
             HostSlice::from_mut_slice(&mut output),
         )
@@ -151,9 +107,9 @@ fn keccak_hash_example() {
 
     // Print the time taken for hashing in milliseconds
     println!(
-        "Hashing {} batches of {} field elements took: {} ms",
+        "Hashing {} batches of {:?} field elements took: {} ms",
         batch,
-        single_hash_nof_elements,
+        single_input,
         start
             .elapsed()
             .as_millis()
@@ -162,7 +118,7 @@ fn keccak_hash_example() {
     // NOTE: like other ICICLE apis, this also works with DeviceSlice for on-device data.
 }
 
-fn merkle_tree_example() {
+fn _merkle_tree_example() {
     // In this example, we demonstrate how to build a binary Merkle tree as a string commitment,
     // then generate and verify Merkle proofs to confirm parts of the string.
 
