@@ -84,7 +84,8 @@ fn keccak_hash_example() {
 
 
     // 4. Hash field elements in batch
-    let batch = 100_000 * 85; 
+//    let batch = 100_000 * 85; 
+    let batch = 1;
     let single_input = salt_value.to_vec();
     let total_input_elements = batch * single_input.len();
 
@@ -115,7 +116,31 @@ fn keccak_hash_example() {
             .as_millis()
     );
 
+    println!("output = {:?}", output);
+
     // NOTE: like other ICICLE apis, this also works with DeviceSlice for on-device data.
+}
+
+fn keccak_hash_example_2() {
+    let keccak_hasher = Keccak256::new(19 /*=default input size */).unwrap();
+
+    let mut input1  = vec![1u8; 10];
+    let input2 = vec![2u8; 9];
+
+    input1.extend(&input2);
+    println!("input1 = {:?}", input1);
+
+    let mut output = vec![0u8; 32 * 2];
+
+    keccak_hasher
+        .hash(
+            HostSlice::from_slice(&input1),
+            &HashConfig::default(),
+            HostSlice::from_mut_slice(&mut output),
+        )
+        .unwrap();
+
+    println!("output = {:?}", output);
 }
 
 fn _merkle_tree_example() {
@@ -217,7 +242,8 @@ fn main() {
     try_load_and_set_backend_device(&args);
 
     // Execute the Keccak hashing example
-    keccak_hash_example();
+//     keccak_hash_example();
+keccak_hash_example_2()
 
     // Execute the Merkle-tree example
     // merkle_tree_example();
